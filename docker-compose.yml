@@ -1,0 +1,34 @@
+version: '3.5'
+
+services:
+
+  postgres:
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=FarmHelperDB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command:
+      - "-Dkeycloak.migration.action=import"
+      - "-Dkeycloak.migration.provider=singleFile"
+      - "-Dkeycloak.migration.file=/tmp/farm_helper-realm.json"
+      - "-Dkeycloak.migration.strategy=OVERWRITE_EXISTING"
+      - "start-dev"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./farm_helper-realm.json:/tmp/farm_helper-realm.json
+    ports:
+      - "8080:8080"
+    restart: always
+
+volumes:
+  postgres_data:

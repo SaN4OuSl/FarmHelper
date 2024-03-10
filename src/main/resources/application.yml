@@ -1,0 +1,40 @@
+server:
+  port: 8081
+  error:
+    include-message: always
+    include-binding-errors: always
+
+management:
+  info:
+    env:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: info
+
+
+keycloak:
+  realm: ${KEYCLOAK_REALM:farm_helper}
+  resource: ${KEYCLOAK_CLIENT:backend_client}
+  auth-server-url: ${KEYCLOAK_URL:http://localhost:8080}
+  ssl-required: external
+  credentials:
+    secret: ${KEYCLOAK_SECRET:1rFcU9O54rSbGiGLUMDIxIjJoBmKqhX8}
+  verify-token-audience: false
+  confidential-port: 0
+  bearer-only: true
+  use-resource-role-mappings: true
+
+spring:
+  flyway:
+    enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/FarmHelperDB?createDatabaseIfNotExist=true}
+    driverClassName: org.postgresql.Driver
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
