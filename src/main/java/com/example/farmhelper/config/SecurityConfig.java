@@ -63,7 +63,8 @@ class SecurityConfig extends KeycloakWebSecurityConfigurerAdapter {
         "/fields/get-current-fields",
         "/sale-invoices/execute/**",
         "/sale-invoices",
-        "/file/harvests/**"
+        "/file/harvests/**",
+        "/file/transactions"
     };
 
     private static final String[] ACCOUNTANT_PATHS = {
