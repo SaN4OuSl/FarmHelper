@@ -1,6 +1,5 @@
 package com.example.farmhelper.controller;
 
-import com.example.farmhelper.entity.SaleInvoice;
 import com.example.farmhelper.model.request.SaleInvoiceRequest;
 import com.example.farmhelper.model.response.SaleInvoiceResponse;
 import com.example.farmhelper.service.SaleInvoiceService;

@@ -23,7 +23,7 @@ public interface HarvestService {
     HarvestResponse writeOffAmountFromHarvest(WriteOffHarvestRequest writeOffHarvestRequest);
 
     Harvest getHarvestByCropNameAndMonthAndYear(String cropName,
-                                                      String monthAndYearOfCollection);
+                                                String monthAndYearOfCollection);
 
     void sellAmountFromHarvest(Harvest harvest, Double amount, Double unitPrice,
                                String description);

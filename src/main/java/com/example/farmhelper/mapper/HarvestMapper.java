@@ -9,7 +9,6 @@ import com.example.farmhelper.model.response.CropHarvestResponse;
 import com.example.farmhelper.model.response.HarvestResponse;
 import com.example.farmhelper.service.CropService;
 import com.example.farmhelper.service.FieldHarvestService;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.Context;

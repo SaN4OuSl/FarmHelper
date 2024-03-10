@@ -11,7 +11,7 @@ public interface FieldService {
     void deactivateFieldById(Long id);
 
     Field getFieldById(Long id);
-    
+
     List<Field> getListOfCurrentFields(String search);
 
     List<Field> getListOfFormerFields(String search);

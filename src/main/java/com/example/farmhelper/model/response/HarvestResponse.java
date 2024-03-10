@@ -1,7 +1,6 @@
 package com.example.farmhelper.model.response;
 
 import com.example.farmhelper.entity.Field;
-import java.sql.Timestamp;
 import java.util.Set;
 import lombok.Data;
 

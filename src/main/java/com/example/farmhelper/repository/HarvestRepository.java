@@ -19,7 +19,7 @@ public interface HarvestRepository extends JpaRepository<Harvest, Long> {
     Boolean existsByCrop_Id(Long cropId);
 
     Optional<Harvest> findByCropAndMonthYearOfCollection(Crop crop,
-                                                           String monthAndYearOfCollection);
+                                                         String monthAndYearOfCollection);
 
     @Transactional
     @Modifying

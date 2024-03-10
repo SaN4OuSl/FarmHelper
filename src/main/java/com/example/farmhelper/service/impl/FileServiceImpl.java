@@ -48,19 +48,12 @@ public class FileServiceImpl implements FileService {
     private static final String PATH_TO_HARVESTS_EXAMPLE = "/files/harvest-import.xlsx";
 
     private static final String PATH_TO_SALE_INVOICES_EXAMPLE = "/files/sale-invoices.xlsx";
-
-
-    private TransactionRepository transactionRepository;
-
-    private SaleInvoiceRepository saleInvoiceRepository;
-
-    private CropService cropService;
-
-    private HarvestService harvestService;
-
-    private FieldService fieldService;
-
     private static final Long OLD_DATE_TIMESTAMP = 1656288000L;
+    private TransactionRepository transactionRepository;
+    private SaleInvoiceRepository saleInvoiceRepository;
+    private CropService cropService;
+    private HarvestService harvestService;
+    private FieldService fieldService;
 
     @Override
     @Transactional

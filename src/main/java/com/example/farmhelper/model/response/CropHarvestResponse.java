@@ -1,6 +1,5 @@
 package com.example.farmhelper.model.response;
 
-import java.sql.Timestamp;
 import lombok.Data;
 
 @Data

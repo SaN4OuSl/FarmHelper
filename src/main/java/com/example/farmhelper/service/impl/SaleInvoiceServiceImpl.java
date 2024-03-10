@@ -41,14 +41,16 @@ public class SaleInvoiceServiceImpl implements SaleInvoiceService {
                 .description(saleInvoiceRequest.getDescription())
                 .invoiceStatus(InvoiceStatus.CREATED).build();
         saleInvoice = saleInvoiceRepository.save(saleInvoice);
-        SaleInvoiceResponse saleInvoiceResponse = SaveInvoiceMapper.INSTANCE.toSaleInvoiceResponse(saleInvoice);
+        SaleInvoiceResponse saleInvoiceResponse =
+            SaveInvoiceMapper.INSTANCE.toSaleInvoiceResponse(saleInvoice);
         log.info("Method createSaleInvoice() finished successfully, returned value: {}",
             saleInvoiceResponse);
         return saleInvoiceResponse;
     }
 
     @Override
-    public SaleInvoiceResponse updateSaleInvoice(Long id, SaleInvoiceRequest updateSaleInvoiceRequest) {
+    public SaleInvoiceResponse updateSaleInvoice(Long id,
+                                                 SaleInvoiceRequest updateSaleInvoiceRequest) {
         log.info("Method updateSaleInvoice() started with id = {} and {}", id,
             updateSaleInvoiceRequest);
         SaleInvoice saleInvoice = getSaleInvoiceById(id);
@@ -60,7 +62,8 @@ public class SaleInvoiceServiceImpl implements SaleInvoiceService {
         saleInvoice.setUnitPrice(updateSaleInvoiceRequest.getUnitPrice());
         saleInvoice.setDescription(updateSaleInvoiceRequest.getDescription());
         saleInvoice = saleInvoiceRepository.save(saleInvoice);
-        SaleInvoiceResponse saleInvoiceResponse = SaveInvoiceMapper.INSTANCE.toSaleInvoiceResponse(saleInvoice);
+        SaleInvoiceResponse saleInvoiceResponse =
+            SaveInvoiceMapper.INSTANCE.toSaleInvoiceResponse(saleInvoice);
         log.info("Method updateSaleInvoice() finished successfully, returned value: {}",
             saleInvoice);
         return saleInvoiceResponse;
@@ -97,7 +100,8 @@ public class SaleInvoiceServiceImpl implements SaleInvoiceService {
         saleInvoice.setInvoiceStatus(InvoiceStatus.PROCESSED);
         saleInvoice.setCompletionDate(Timestamp.from(Instant.now()));
         saleInvoice = saleInvoiceRepository.save(saleInvoice);
-        SaleInvoiceResponse saleInvoiceResponse = SaveInvoiceMapper.INSTANCE.toSaleInvoiceResponse(saleInvoice);
+        SaleInvoiceResponse saleInvoiceResponse =
+            SaveInvoiceMapper.INSTANCE.toSaleInvoiceResponse(saleInvoice);
         log.info("Method executeSaleInvoice() finished successfully, returned value: {}",
             saleInvoice);
         return saleInvoiceResponse;
