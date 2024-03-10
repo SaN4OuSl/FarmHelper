@@ -9,7 +9,6 @@ import com.example.farmhelper.entity.InvoiceStatus;
 import com.example.farmhelper.entity.SaleInvoice;
 import com.example.farmhelper.entity.Transaction;
 import com.example.farmhelper.exception.ImportException;
-import com.example.farmhelper.exception.ResourceNotFoundException;
 import com.example.farmhelper.model.request.HarvestRequest;
 import com.example.farmhelper.repository.SaleInvoiceRepository;
 import com.example.farmhelper.repository.TransactionRepository;
@@ -25,35 +24,50 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.transaction.Transactional;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
-@AllArgsConstructor
 public class FileServiceImpl implements FileService {
 
     private static final String PATH_TO_HARVESTS_EXAMPLE = "/files/harvest-import.xlsx";
-
     private static final String PATH_TO_SALE_INVOICES_EXAMPLE = "/files/sale-invoices.xlsx";
     private static final Long OLD_DATE_TIMESTAMP = 1656288000L;
-    private TransactionRepository transactionRepository;
-    private SaleInvoiceRepository saleInvoiceRepository;
-    private CropService cropService;
-    private HarvestService harvestService;
-    private FieldService fieldService;
+
+    private final TransactionRepository transactionRepository;
+    private final SaleInvoiceRepository saleInvoiceRepository;
+    private final CropService cropService;
+    private final HarvestService harvestService;
+    private final FieldService fieldService;
+
+    @Autowired
+    public FileServiceImpl(TransactionRepository transactionRepository,
+                           SaleInvoiceRepository saleInvoiceRepository, CropService cropService,
+                           HarvestService harvestService, FieldService fieldService) {
+        this.transactionRepository = transactionRepository;
+        this.saleInvoiceRepository = saleInvoiceRepository;
+        this.cropService = cropService;
+        this.harvestService = harvestService;
+        this.fieldService = fieldService;
+    }
 
     @Override
     @Transactional
@@ -76,14 +90,7 @@ public class FileServiceImpl implements FileService {
     }
 
     private void createHarvestFromRow(Row row) {
-        String cropName;
-        try {
-            cropName = row.getCell(0).getStringCellValue().trim();
-        } catch (RuntimeException e) {
-            throw new ImportException("Harvest",
-                "The first two columns must not have null values.");
-        }
-
+        String cropName = row.getCell(0).getStringCellValue().trim();
         String monthAndYearOfCollection = row.getCell(1).getStringCellValue().trim();
         Pattern pattern = Pattern.compile("^[0-9]{4}-(0[1-9]|1[0-2])$");
         if (!pattern.matcher(monthAndYearOfCollection).matches()) {
@@ -105,7 +112,6 @@ public class FileServiceImpl implements FileService {
         Crop crop = cropService.getCropByName(cropName);
         HarvestRequest harvestRequest =
             new HarvestRequest(crop.getId(), amount, monthAndYearOfCollection, fieldIds);
-
         harvestService.createHarvest(harvestRequest);
     }
 
@@ -134,15 +140,8 @@ public class FileServiceImpl implements FileService {
     }
 
     private void createInvoiceFromRow(Row row) {
-        String cropName;
-        String monthAndYearOfCollection;
-        try {
-            cropName = row.getCell(0).getStringCellValue();
-            monthAndYearOfCollection = row.getCell(1).getStringCellValue();
-        } catch (RuntimeException e) {
-            throw new ImportException("Harvest",
-                "The first two columns must not have null values.");
-        }
+        String cropName = row.getCell(0).getStringCellValue().trim();
+        String monthAndYearOfCollection = row.getCell(1).getStringCellValue().trim();
         double unitPrice = row.getCell(2).getNumericCellValue();
         if (unitPrice < 0) {
             throw new ImportException(cropName + " " + monthAndYearOfCollection,
@@ -153,148 +152,167 @@ public class FileServiceImpl implements FileService {
             throw new ImportException(cropName + " " + monthAndYearOfCollection,
                 "Amount should be positive");
         }
-        try {
-            String description = row.getCell(4) != null ? row.getCell(4).getStringCellValue() : "";
+        String description = row.getCell(4) != null ? row.getCell(4).getStringCellValue() : "";
 
-            Harvest harvest =
-                harvestService.getHarvestByCropNameAndMonthAndYear(cropName,
-                    monthAndYearOfCollection);
-            SaleInvoice saleInvoice = SaleInvoice.builder()
-                .harvest(harvest)
-                .amount(amount)
-                .unitPrice(unitPrice)
-                .creationDate(Timestamp.from(Instant.now()))
-                .description(description)
-                .invoiceStatus(InvoiceStatus.CREATED)
-                .build();
-            saleInvoiceRepository.save(saleInvoice);
-        } catch (RuntimeException e) {
-            throw new ImportException(cropName + " " + monthAndYearOfCollection,
-                "Check the entered data for this harvest");
-        }
+        Harvest harvest =
+            harvestService.getHarvestByCropNameAndMonthAndYear(cropName, monthAndYearOfCollection);
+        SaleInvoice saleInvoice = SaleInvoice.builder()
+            .harvest(harvest)
+            .amount(amount)
+            .unitPrice(unitPrice)
+            .creationDate(Timestamp.from(Instant.now()))
+            .description(description)
+            .invoiceStatus(InvoiceStatus.CREATED)
+            .build();
+        saleInvoiceRepository.save(saleInvoice);
     }
 
     @Override
-    public byte[] exportTransactions(Long startDateLong, Long endDateLong,
-                                     ActionType actionType) {
+    public byte[] exportTransactions(Long startDateLong, Long endDateLong, ActionType actionType) {
         log.info("Method exportTransactions() started");
-        try (
-            XSSFWorkbook workbook = new XSSFWorkbook();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream()
-        ) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Transactions");
-            String[] headers = {"ID", "Harvest", "Username", "Action Type", "Amount After Action",
-                "Amount In Operation", "Transaction Price", "Date Of Transaction", "Description"};
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle cellStyle = createCellStyle(workbook);
 
+            String[] headers =
+                {"ID", "Harvest", "Username", "Action Type", "Amount After Action, ce",
+                    "Amount In Operation, ce", "Transaction Price, ₴", "Date Of Transaction",
+                    "Description"};
             Row headerRow = sheet.createRow(0);
-            IntStream.range(0, headers.length)
-                .forEach(i -> headerRow.createCell(i).setCellValue(headers[i]));
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
 
-            Timestamp startDate = startDateLong == null ? new Timestamp(OLD_DATE_TIMESTAMP) :
-                new Timestamp(startDateLong);
-            Timestamp endDate = endDateLong == null ? Timestamp.from(Instant.now()) :
-                new Timestamp(endDateLong);
-
-            List<Transaction> transactions = (actionType != null)
-                ? transactionRepository
-                .findAllByActionTypeAndDateOfTransactionAfterAndDateOfTransactionBefore(
-                    actionType, startDate, endDate) :
-                transactionRepository.findAllByDateOfTransactionIsAfterAndDateOfTransactionIsBefore(
-                    startDate, endDate);
+            Timestamp startDate = Optional.ofNullable(startDateLong)
+                .map(Timestamp::new)
+                .orElse(new Timestamp(OLD_DATE_TIMESTAMP));
+            Timestamp endDate = Optional.ofNullable(endDateLong)
+                .map(Timestamp::new)
+                .orElse(Timestamp.from(Instant.now()));
+            List<Transaction> transactions = Optional.ofNullable(actionType)
+                .map(
+                    at -> transactionRepository.findAllByActionTypeAndDateOfTransactionAfterAndDateOfTransactionBefore(
+                        at, startDate, endDate))
+                .orElseGet(
+                    () -> transactionRepository.findAllByDateOfTransactionIsAfterAndDateOfTransactionIsBefore(
+                        startDate, endDate));
 
             IntStream.range(0, transactions.size()).forEach(i -> {
                 Transaction transaction = transactions.get(i);
                 Row row = sheet.createRow(i + 1);
-
-                row.createCell(0).setCellValue(transaction.getId());
-                row.createCell(1).setCellValue(transaction.getHarvest().getCrop().getName() + " "
-                    + transaction.getHarvest().getMonthYearOfCollection());
-                row.createCell(2).setCellValue(transaction.getUser().getId());
-                row.createCell(3).setCellValue(transaction.getActionType().toString());
-                row.createCell(4).setCellValue(transaction.getAmountAfterAction());
-                row.createCell(5).setCellValue(transaction.getAmountInOperation());
-                row.createCell(6).setCellValue(transaction.getTransactionPrice() == null ? "N/A" :
-                    transaction.getTransactionPrice().toString());
-                row.createCell(7).setCellValue(transaction.getDateOfTransaction().toString());
-                row.createCell(8).setCellValue(transaction.getDescription() == null ? "" :
-                    transaction.getDescription());
+                fillTransactionRow(headers, row, cellStyle, transaction);
             });
 
             IntStream.range(0, headers.length).forEach(sheet::autoSizeColumn);
-
             workbook.write(baos);
             log.info("Method exportTransactions() finished successfully");
             return baos.toByteArray();
         } catch (Exception e) {
-            log.error("Failed to export transactions to Excel file.");
+            log.error("Failed to export transactions to Excel file.", e);
             throw new RuntimeException("Failed to export transactions to Excel file.", e);
         }
     }
 
+    private void fillTransactionRow(String[] headers, Row row, CellStyle cellStyle,
+                                    Transaction transaction) {
+        for (int j = 0; j < headers.length; j++) {
+            Cell cell = row.createCell(j);
+            cell.setCellStyle(cellStyle);
+        }
+        row.getCell(0).setCellValue(transaction.getId());
+        row.getCell(1).setCellValue(transaction.getHarvest().getCrop().getName() + " " +
+            transaction.getHarvest().getMonthYearOfCollection());
+        row.getCell(2).setCellValue(transaction.getUser().getId());
+        row.getCell(3).setCellValue(transaction.getActionType().toString());
+        row.getCell(4).setCellValue(transaction.getAmountAfterAction());
+        row.getCell(5).setCellValue(transaction.getAmountInOperation());
+        row.getCell(6).setCellValue(transaction.getTransactionPrice() == null ? "N/A" :
+            transaction.getTransactionPrice().toString());
+        row.getCell(7).setCellValue(transaction.getDateOfTransaction().toString());
+        row.getCell(8)
+            .setCellValue(transaction.getDescription() == null ? "" : transaction.getDescription());
+    }
 
     @Override
     public byte[] exportCrops(String year) {
         log.info("Method exportCrops() started");
-        try (
-            XSSFWorkbook workbook = new XSSFWorkbook();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream()
-        ) {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Crops");
-            Row titleRow = sheet.createRow(0);
-            titleRow.createCell(0).setCellValue("Harvested crops for " + year);
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle cellStyle = createCellStyle(workbook);
 
-            String[] headers = {"Crop name", "Total field size", "Total amount"};
+            Row titleRow = sheet.createRow(0);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("Harvested crops for " + year);
+
+            String[] headers = {"Crop name", "Total field size, ha", "Total amount, ce"};
             Row headerRow = sheet.createRow(1);
-            IntStream.range(0, headers.length)
-                .forEach(i -> headerRow.createCell(i).setCellValue(headers[i]));
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
 
             List<Crop> crops = cropService.getAllCrops("");
-
             AtomicInteger rowCounter = new AtomicInteger(2);
             crops.forEach(crop -> {
-                List<Harvest> harvests = crop.getHarvests().stream()
-                    .filter(h -> h.getMonthYearOfCollection().contains(year))
-                    .toList();
-
-                double totalFieldSize = harvests.stream()
-                    .flatMap(harvest -> harvest.getFieldHarvests().stream())
-                    .map(FieldHarvest::getField)
-                    .mapToDouble(Field::getFieldSize)
-                    .sum();
-
-                double totalAmount = harvests.stream()
-                    .flatMap(harvest -> harvest.getTransactions().stream())
-                    .filter(transaction -> transaction.getActionType() == ActionType.ADD)
-                    .mapToDouble(Transaction::getAmountInOperation)
-                    .sum();
-
-                Row row = sheet.createRow(rowCounter.getAndIncrement());
-                row.createCell(0).setCellValue(crop.getName());
-                row.createCell(1).setCellValue(totalFieldSize);
-                row.createCell(2).setCellValue(totalAmount);
+                Row row = createCropRow(sheet, rowCounter.getAndIncrement(), cellStyle);
+                fillCropRow(row, crop, year);
             });
-            IntStream.range(0, headers.length).forEach(sheet::autoSizeColumn);
 
+            IntStream.range(0, headers.length).forEach(sheet::autoSizeColumn);
             workbook.write(baos);
             log.info("Method exportCrops() finished successfully");
             return baos.toByteArray();
         } catch (Exception e) {
-            log.error("Failed to export crops to Excel file.");
+            log.error("Failed to export crops to Excel file.", e);
             throw new RuntimeException("Failed to export crops to Excel file.", e);
         }
+    }
+
+    private Row createCropRow(Sheet sheet, int rowNum, CellStyle cellStyle) {
+        Row row = sheet.createRow(rowNum);
+        for (int i = 0; i < 3; i++) {
+            Cell cell = row.createCell(i);
+            cell.setCellStyle(cellStyle);
+        }
+        return row;
+    }
+
+    private void fillCropRow(Row row, Crop crop, String year) {
+        double totalFieldSize = crop.getHarvests().stream()
+            .filter(harvest -> harvest.getMonthYearOfCollection().contains(year))
+            .flatMap(harvest -> harvest.getFieldHarvests().stream())
+            .map(FieldHarvest::getField)
+            .mapToDouble(Field::getFieldSize)
+            .sum();
+
+        double totalAmount = crop.getHarvests().stream()
+            .filter(harvest -> harvest.getMonthYearOfCollection().contains(year))
+            .flatMap(harvest -> harvest.getTransactions().stream())
+            .mapToDouble(Transaction::getAmountInOperation)
+            .sum();
+
+        row.getCell(0).setCellValue(crop.getName());
+        row.getCell(1).setCellValue(totalFieldSize);
+        row.getCell(2).setCellValue(totalAmount);
     }
 
     @Override
     public byte[] exportExampleHarvests() {
         log.info("Method exportExampleHarvests() started");
         try (InputStream inputStream = getClass().getResourceAsStream(PATH_TO_HARVESTS_EXAMPLE)) {
-            byte[] exportHarvestsExample = Objects.requireNonNull(inputStream).readAllBytes();
-            log.info("Method exportExampleHarvests() finished successfully, returned value: {}",
-                PATH_TO_HARVESTS_EXAMPLE);
-            return exportHarvestsExample;
+            byte[] bytes = Objects.requireNonNull(inputStream).readAllBytes();
+            log.info("Method exportExampleHarvests() finished successfully");
+            return bytes;
         } catch (IOException e) {
-            log.error("Example file was not found in this path: {}", PATH_TO_HARVESTS_EXAMPLE);
-            throw new ResourceNotFoundException();
+            log.error("Example file was not found", e);
+            throw new RuntimeException("Example file was not found", e);
         }
     }
 
@@ -303,13 +321,34 @@ public class FileServiceImpl implements FileService {
         log.info("Method exportExampleSaleInvoices() started");
         try (InputStream inputStream = getClass().getResourceAsStream(
             PATH_TO_SALE_INVOICES_EXAMPLE)) {
-            byte[] exportSaleInvoices = Objects.requireNonNull(inputStream).readAllBytes();
-            log.info("Method exportExampleSaleInvoices() finished successfully, returned value: {}",
-                PATH_TO_SALE_INVOICES_EXAMPLE);
-            return exportSaleInvoices;
+            byte[] bytes = Objects.requireNonNull(inputStream).readAllBytes();
+            log.info("Method exportExampleSaleInvoices() finished successfully");
+            return bytes;
         } catch (IOException e) {
-            log.error("Example file was not found in this path: {}", PATH_TO_SALE_INVOICES_EXAMPLE);
-            throw new ResourceNotFoundException();
+            log.error("Example file was not found", e);
+            throw new RuntimeException("Example file was not found", e);
         }
     }
+
+    private CellStyle createCellStyle(XSSFWorkbook workbook) {
+        CellStyle cellStyle = workbook.createCellStyle();
+        cellStyle.setBorderBottom(BorderStyle.THIN);
+        cellStyle.setBorderTop(BorderStyle.THIN);
+        cellStyle.setBorderRight(BorderStyle.THIN);
+        cellStyle.setBorderLeft(BorderStyle.THIN);
+        return cellStyle;
+    }
+
+    private CellStyle createHeaderStyle(XSSFWorkbook workbook) {
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setBorderBottom(BorderStyle.THIN);
+        headerStyle.setBorderTop(BorderStyle.THIN);
+        headerStyle.setBorderRight(BorderStyle.THIN);
+        headerStyle.setBorderLeft(BorderStyle.THIN);
+        return headerStyle;
+    }
 }
+
