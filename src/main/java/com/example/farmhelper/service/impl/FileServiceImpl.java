@@ -176,10 +176,9 @@ public class FileServiceImpl implements FileService {
             CellStyle headerStyle = createHeaderStyle(workbook);
             CellStyle cellStyle = createCellStyle(workbook);
 
-            String[] headers =
-                {"ID", "Harvest", "Username", "Action Type", "Amount After Action, ce",
-                    "Amount In Operation, ce", "Transaction Price, ₴", "Date Of Transaction",
-                    "Description"};
+            String[] headers = {"Harvest", "Username", "Action Type", "Amount After Action, ce",
+                "Amount In Operation, ce", "Transaction Price, ₴", "Date Of Transaction",
+                "Description"};
             Row headerRow = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
@@ -223,17 +222,16 @@ public class FileServiceImpl implements FileService {
             Cell cell = row.createCell(j);
             cell.setCellStyle(cellStyle);
         }
-        row.getCell(0).setCellValue(transaction.getId());
-        row.getCell(1).setCellValue(transaction.getHarvest().getCrop().getName() + " " +
+        row.getCell(0).setCellValue(transaction.getHarvest().getCrop().getName() + " " +
             transaction.getHarvest().getMonthYearOfCollection());
-        row.getCell(2).setCellValue(transaction.getUser().getId());
-        row.getCell(3).setCellValue(transaction.getActionType().toString());
-        row.getCell(4).setCellValue(transaction.getAmountAfterAction());
-        row.getCell(5).setCellValue(transaction.getAmountInOperation());
-        row.getCell(6).setCellValue(transaction.getTransactionPrice() == null ? "N/A" :
+        row.getCell(1).setCellValue(transaction.getUser().getUsername());
+        row.getCell(2).setCellValue(transaction.getActionType().toString());
+        row.getCell(3).setCellValue(transaction.getAmountAfterAction());
+        row.getCell(4).setCellValue(transaction.getAmountInOperation());
+        row.getCell(5).setCellValue(transaction.getTransactionPrice() == null ? "N/A" :
             transaction.getTransactionPrice().toString());
-        row.getCell(7).setCellValue(transaction.getDateOfTransaction().toString());
-        row.getCell(8)
+        row.getCell(6).setCellValue(transaction.getDateOfTransaction().toString());
+        row.getCell(7)
             .setCellValue(transaction.getDescription() == null ? "" : transaction.getDescription());
     }
 
