@@ -1,8 +1,10 @@
 package com.example.farmhelper.service.impl;
 
 import com.example.farmhelper.config.KeycloakConfigProperties;
+import com.example.farmhelper.config.UserRoles;
 import com.example.farmhelper.entity.User;
 import com.example.farmhelper.exception.ResourceNotFoundException;
+import com.example.farmhelper.exception.UserAccessException;
 import com.example.farmhelper.mapper.UserMapper;
 import com.example.farmhelper.model.request.UserRequest;
 import com.example.farmhelper.model.response.UserResponse;
@@ -10,10 +12,12 @@ import com.example.farmhelper.repository.UserRepository;
 import com.example.farmhelper.service.UserService;
 import com.example.farmhelper.util.SecurityContextUtils;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
@@ -96,6 +100,9 @@ public class UserServiceImpl implements UserService {
             log.warn("User with username = {} not found", username);
             return new ResourceNotFoundException(username);
         });
+        if (Objects.equals(user.getRole(), UserRoles.ADMIN.name())) {
+            throw new UserAccessException(username);
+        }
         user.setIsActive(false);
         userRepository.save(user);
         log.info("Method deleteUserByUsername() finished successfully");
@@ -114,6 +121,17 @@ public class UserServiceImpl implements UserService {
                 return new ResourceNotFoundException("User", id.toString());
             });
         }
+    }
+
+    @Override
+    public void synchronizeUsersWithKeycloak() {
+        log.info("Method synchronizeUsersWithKeycloak() started");
+        UsersResource keycloakUsers = keycloak.realm(keycloakRealm).users();
+        userRepository.saveAll(userRepository.findAll().stream()
+            .map(user -> synchronizeUserDataWithKeycloak(user, user.getUsername(), keycloakUsers))
+            .toList());
+
+        log.info("Method synchronizeUsersWithKeycloak() finished successfully");
     }
 
     private Stream<UserRepresentation> getNotFiredUsersWithUsernameFromKeycloak(String username) {
@@ -135,5 +153,19 @@ public class UserServiceImpl implements UserService {
         log.info("Method getUserByUsernameFromKeycloak() finished successfully, "
             + "returned userRepresentation with: id = {}", userRepresentation.getId());
         return userRepresentation;
+    }
+
+    private User synchronizeUserDataWithKeycloak(User userData, String username,
+                                                 UsersResource keycloakUsers) {
+        UserRepresentation userRepresentation = keycloakUsers.search(username).stream()
+            .filter(user -> user.getUsername().equals(username))
+            .findFirst().orElseThrow(() -> {
+                log.warn("User with username = {} not found", username);
+                return new ResourceNotFoundException(username);
+            });
+        userData.setFirstName(userRepresentation.getFirstName());
+        userData.setLastName(userRepresentation.getLastName());
+        userData.setEmail(userRepresentation.getEmail());
+        return userData;
     }
 }

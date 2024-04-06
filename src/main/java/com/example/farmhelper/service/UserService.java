@@ -15,5 +15,7 @@ public interface UserService {
 
     void deactivateUserByUsername(String username);
 
+    void synchronizeUsersWithKeycloak();
+
     User getCurrentUser();
 }

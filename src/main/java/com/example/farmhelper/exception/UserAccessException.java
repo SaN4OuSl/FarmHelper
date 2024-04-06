@@ -7,6 +7,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 public class UserAccessException extends RuntimeException {
 
     public UserAccessException(String username) {
-        super(String.format("Your user with username %s doesn't have enough rights ", username));
+        super(String.format("You cannot remove a user with username = %s with ADMIN role", username));
     }
 }
