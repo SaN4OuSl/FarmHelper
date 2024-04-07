@@ -1,4 +1,6 @@
 server:
+  servlet:
+    context-path: /farmhelper-service
   port: 8081
   error:
     include-message: always
